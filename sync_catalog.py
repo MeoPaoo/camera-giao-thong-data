@@ -152,6 +152,74 @@ def snapshot_state(cam_id):
         time.sleep(SNAPSHOT_DELAY)
 
 
+# ---------- Quận/huyện (cũ) và phường/xã (mới) từ ranh giới OSM trong boundaries/ ----------
+BOUNDARIES = Path(__file__).resolve().parent / "boundaries"
+
+
+def _in_ring(ring, x, y):
+    inside = False
+    j = len(ring) - 1
+    for i in range(len(ring)):
+        xi, yi = ring[i]
+        xj, yj = ring[j]
+        if (yi > y) != (yj > y) and x < (xj - xi) * (y - yi) / (yj - yi) + xi:
+            inside = not inside
+        j = i
+    return inside
+
+
+class Areas:
+    def __init__(self, path):
+        self.items = []
+        if not Path(path).exists():
+            return
+        for f in json.loads(Path(path).read_text(encoding="utf-8"))["features"]:
+            for poly in f["geometry"]["coordinates"]:
+                xs = [p[0] for p in poly[0]]
+                ys = [p[1] for p in poly[0]]
+                self.items.append((min(xs), min(ys), max(xs), max(ys), poly, f["properties"]))
+
+    def __bool__(self):
+        return bool(self.items)
+
+    def find(self, lat, lon):
+        """Thuộc tính (name, province…) của vùng chứa điểm, hoặc None."""
+        for x0, y0, x1, y1, poly, props in self.items:
+            if x0 <= lon <= x1 and y0 <= lat <= y1 and _in_ring(poly[0], lon, lat) \
+                    and not any(_in_ring(hole, lon, lat) for hole in poly[1:]):
+                return props
+        return None
+
+
+HCMC = "TP. Hồ Chí Minh"
+
+
+def annotate(cameras):
+    """Gắn 'district' (quận/huyện cũ, kèm 'oldProvince' nếu ngoài TP.HCM cũ) và 'ward' (phường/xã mới).
+    Bỏ trường khi không xác định được."""
+    stats = {}
+    for field, file in (("district", "districts_old.geojson"), ("ward", "wards_new.geojson")):
+        areas = Areas(BOUNDARIES / file)
+        if not areas:
+            continue
+        found = 0
+        for cam in cameras:
+            props = areas.find(cam["latitude"], cam["longitude"])
+            if props:
+                cam[field] = props["name"]
+                found += 1
+            else:
+                cam.pop(field, None)
+            if field == "district":
+                province = props.get("province") if props else None
+                if province and province != HCMC:
+                    cam["oldProvince"] = province
+                else:
+                    cam.pop("oldProvince", None)
+        stats[field] = found
+    return stats
+
+
 # ---------- Danh mục ----------
 def load_catalog():
     if not CATALOG.exists():
@@ -188,7 +256,7 @@ def write_catalog(cameras):
     doc = {
         "version": 1,
         "updatedAt": datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z"),
-        "source": "giaothong.hochiminhcity.gov.vn (bản đồ công khai) + WME WazeVN traffic cams list (MIT)",
+        "source": "giaothong.hochiminhcity.gov.vn (bản đồ công khai) + WME WazeVN traffic cams list (MIT); quận/phường: ranh giới © OpenStreetMap contributors (ODbL)",
         "count": len(cameras),
         "cameras": cameras,
     }
@@ -265,6 +333,7 @@ def sync():
     if len(result) < MIN_CATALOG:
         log(f"Danh mục chỉ còn {len(result)} camera (< {MIN_CATALOG}) — dừng.")
         return 5
+    area_stats = annotate(result)
     errors = validate(result)
     if errors:
         log("Danh mục không hợp lệ:\n  " + "\n  ".join(errors[:20]))
@@ -275,6 +344,8 @@ def sync():
     for h in sorted(hosts - APP_ALLOWED_HTTP_VIDEO_HOSTS):
         warn(f"Máy chủ video HTTP mới '{h}': cần thêm vào network_security_config.xml và video_hosts.dart của app.")
 
+    if area_stats:
+        log("Xác định khu vực: " + ", ".join(f"{k} {v}/{len(result)}" for k, v in area_stats.items()))
     log(f"Thêm {len(added)}, đổi video {video_changed}, xóa {len(removed)}, "
         f"giữ {kept_missing} camera không còn trên cổng nhưng ảnh vẫn chạy. Tổng {len(result)}.")
     before = sorted(current, key=lambda c: c["id"])

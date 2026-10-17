@@ -30,6 +30,13 @@ https://<tài-khoản>.github.io/camera-giao-thong-data/cameras.json
 
 `imageUrl` = ảnh chụp định kỳ (có thể `null` với camera chỉ có video). `videoUrl` = luồng HLS trực tiếp (không bắt buộc).
 
+Khu vực hành chính (gắn tự động mỗi lần đồng bộ):
+
+- `district` — quận/huyện theo **địa giới cũ** (trước 01/07/2025), vd. `"Quận 1"`. `oldProvince` chỉ có khi ngoài TP.HCM cũ, vd. `"Bình Dương"`.
+- `ward` — phường/xã theo **địa giới mới** (sau 01/07/2025).
+
+Ranh giới lưu trong `boundaries/` (GeoJSON), tải bằng `python -I fetch_boundaries.py districts|wards` từ OpenStreetMap — chỉ chạy lại khi địa giới thay đổi. Dữ liệu ranh giới và các trường `district`/`oldProvince`/`ward` © OpenStreetMap contributors, giấy phép [ODbL 1.0](https://www.openstreetmap.org/copyright).
+
 ## Đồng bộ
 
 - **Tự động:** `.github/workflows/sync.yml` chạy 03:17 sáng (giờ VN) mỗi ngày; có thay đổi thì commit, Pages tự cập nhật trong vài phút.
