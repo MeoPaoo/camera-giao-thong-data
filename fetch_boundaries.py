@@ -19,6 +19,8 @@ OUT = Path(__file__).resolve().parent / "boundaries"
 OLD_DATE = "2025-06-01T00:00:00Z"
 # Khung bao TP.HCM cũ (trước khi nhập Bình Dương, Bà Rịa – Vũng Tàu): nơi có camera của cổng.
 OLD_HCMC_BBOX = "10.35,106.35,11.17,107.03"
+# Khung bao mọi camera hiện có (gồm Quốc lộ 51 – Phú Mỹ, Bình Dương, Long An giáp ranh).
+WARD_BBOX = "10.35,106.35,11.15,107.15"
 OLD_DISTRICTS = {
     "Quận 1", "Quận 3", "Quận 4", "Quận 5", "Quận 6", "Quận 7", "Quận 8", "Quận 10", "Quận 11", "Quận 12",
     "Quận Bình Thạnh", "Quận Gò Vấp", "Quận Phú Nhuận", "Quận Tân Bình", "Quận Tân Phú", "Quận Bình Tân",
@@ -138,31 +140,39 @@ def districts():
          f"Quận/huyện TP.HCM và tỉnh lân cận trước 01/07/2025 (OSM ngày {OLD_DATE[:10]})")
 
 
+def _short_province(name):
+    for prefix in ("Thành phố ", "Tỉnh "):
+        if name.startswith(prefix):
+            name = name[len(prefix):]
+    return "TP. Hồ Chí Minh" if name == "Hồ Chí Minh" else name
+
+
 def wards():
-    q = ('[out:json][timeout:600];'
-         'area["boundary"="administrative"]["admin_level"="4"]["name"="Thành phố Hồ Chí Minh"]->.hcm;'
-         'relation(area.hcm)["boundary"="administrative"]["admin_level"="4"]["name"="Thành phố Hồ Chí Minh"]->.city;'
-         'relation(area.hcm)["boundary"="administrative"]["admin_level"="6"];'
-         '(._;.city;);out geom;')
+    # Mọi phường/xã MỚI trong khung bao các camera (TP.HCM cũ + Bình Dương, Phú Mỹ, Long An giáp ranh),
+    # kèm tỉnh/thành MỚI chứa nó (vd. Long An cũ nay thuộc Tây Ninh).
+    q = (f'[out:json][timeout:900];'
+         f'relation["boundary"="administrative"]["admin_level"~"^(4|6)$"]({WARD_BBOX});out geom;')
     elements = overpass(q)["elements"]
-    city = next((e for e in elements if e.get("tags", {}).get("admin_level") == "4"), None)
-    city_feat = relation_to_feature(city) if city else None
+    provinces = [(f["properties"]["name"], f) for f in
+                 (relation_to_feature(e) for e in elements if e.get("tags", {}).get("admin_level") == "4") if f]
     feats = []
     for rel in elements:
-        if rel.get("tags", {}).get("admin_level") != "6":
+        if rel.get("tags", {}).get("admin_level") != "6" or not rel.get("tags", {}).get("name"):
             continue
         f = relation_to_feature(rel)
         if not f:
             continue
-        # Bỏ phường/xã của tỉnh lân cận chỉ chạm ranh giới: điểm giữa vòng ngoài phải nằm trong TP.HCM.
         ring = f["geometry"]["coordinates"][0][0]
         cx = sum(p[0] for p in ring) / len(ring)
         cy = sum(p[1] for p in ring) / len(ring)
-        if city_feat and not any(contains(poly[0], cx, cy) for poly in city_feat["geometry"]["coordinates"]):
+        province = next((name for name, pf in provinces
+                         if any(contains(poly[0], cx, cy) for poly in pf["geometry"]["coordinates"])), None)
+        if province is None:
             continue
+        f["properties"]["province"] = _short_province(province)
         feats.append(f)
-    save("wards_new.geojson", sorted(feats, key=lambda f: f["properties"]["name"]),
-         "Phường/xã TP.HCM sau 01/07/2025 (OSM, dữ liệu hiện tại)")
+    save("wards_new.geojson", sorted(feats, key=lambda f: (f["properties"]["province"], f["properties"]["name"])),
+         "Phường/xã sau 01/07/2025 quanh khu vực có camera (OSM, dữ liệu hiện tại)")
 
 
 if __name__ == "__main__":

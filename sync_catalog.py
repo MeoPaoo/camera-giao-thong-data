@@ -168,6 +168,17 @@ def _in_ring(ring, x, y):
     return inside
 
 
+def _ring_distance(ring, x, y):
+    """Khoảng cách (độ) từ điểm tới cạnh gần nhất của vòng."""
+    best = float("inf")
+    for (ax, ay), (bx, by) in zip(ring, ring[1:]):
+        dx, dy = bx - ax, by - ay
+        t = 0.0 if dx == dy == 0 else max(0.0, min(1.0, ((x - ax) * dx + (y - ay) * dy) / (dx * dx + dy * dy)))
+        px, py = ax + t * dx, ay + t * dy
+        best = min(best, ((x - px) ** 2 + (y - py) ** 2) ** 0.5)
+    return best
+
+
 class Areas:
     def __init__(self, path):
         self.items = []
@@ -182,21 +193,29 @@ class Areas:
     def __bool__(self):
         return bool(self.items)
 
-    def find(self, lat, lon):
-        """Thuộc tính (name, province…) của vùng chứa điểm, hoặc None."""
+    def find(self, lat, lon, tolerance=0.005):
+        """Thuộc tính (name, province…) của vùng chứa điểm. Điểm rơi vào khe giữa các vùng (sông, mép
+        ranh giới) thì lấy vùng có cạnh gần nhất trong khoảng [tolerance] độ (~500 m). Không có → None."""
         for x0, y0, x1, y1, poly, props in self.items:
             if x0 <= lon <= x1 and y0 <= lat <= y1 and _in_ring(poly[0], lon, lat) \
                     and not any(_in_ring(hole, lon, lat) for hole in poly[1:]):
                 return props
-        return None
+        best, best_d = None, tolerance
+        for x0, y0, x1, y1, poly, props in self.items:
+            if not (x0 - tolerance <= lon <= x1 + tolerance and y0 - tolerance <= lat <= y1 + tolerance):
+                continue
+            d = _ring_distance(poly[0], lon, lat)
+            if d < best_d:
+                best, best_d = props, d
+        return best
 
 
 HCMC = "TP. Hồ Chí Minh"
 
 
 def annotate(cameras):
-    """Gắn 'district' (quận/huyện cũ, kèm 'oldProvince' nếu ngoài TP.HCM cũ) và 'ward' (phường/xã mới).
-    Bỏ trường khi không xác định được."""
+    """Gắn 'district' (quận/huyện cũ, kèm 'oldProvince' nếu ngoài TP.HCM cũ) và 'ward' (phường/xã mới,
+    kèm 'newProvince' nếu ngoài TP.HCM mới). Bỏ trường khi không xác định được."""
     stats = {}
     for field, file in (("district", "districts_old.geojson"), ("ward", "wards_new.geojson")):
         areas = Areas(BOUNDARIES / file)
@@ -210,12 +229,13 @@ def annotate(cameras):
                 found += 1
             else:
                 cam.pop(field, None)
-            if field == "district":
-                province = props.get("province") if props else None
-                if province and province != HCMC:
-                    cam["oldProvince"] = province
-                else:
-                    cam.pop("oldProvince", None)
+            # Tỉnh/thành chỉ ghi khi khác TP.HCM: cũ (Bình Dương…) cho quận, mới (Tây Ninh…) cho phường.
+            province_field = "oldProvince" if field == "district" else "newProvince"
+            province = props.get("province") if props else None
+            if province and province != HCMC:
+                cam[province_field] = province
+            else:
+                cam.pop(province_field, None)
         stats[field] = found
     return stats
 
