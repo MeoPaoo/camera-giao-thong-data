@@ -1,6 +1,6 @@
 {
  "version": 1,
- "updatedAt": "2026-11-07T00:14:06Z",
+ "updatedAt": "2026-11-07T23:45:15Z",
  "source": "giaothong.hochiminhcity.gov.vn (bản đồ công khai) + WME WazeVN traffic cams list (MIT); quận/phường: ranh giới © OpenStreetMap contributors (ODbL)",
  "count": 795,
  "cameras": [
@@ -710,8 +710,7 @@
    "longitude": 106.730428934097,
    "imageUrl": "https://giaothong.hochiminhcity.gov.vn/render/ImageHandler.ashx?id=58743b37b807da0011e33c81",
    "district": "Thành phố Thủ Đức",
-   "ward": "Phường An Khánh",
-   "missCount": 1
+   "ward": "Phường An Khánh"
   },
   {
    "id": "58743e05b807da0011e33c8e",
@@ -720,8 +719,7 @@
    "longitude": 106.746608018875,
    "imageUrl": "https://giaothong.hochiminhcity.gov.vn/render/ImageHandler.ashx?id=58743e05b807da0011e33c8e",
    "district": "Thành phố Thủ Đức",
-   "ward": "Phường Bình Trưng",
-   "missCount": 1
+   "ward": "Phường Bình Trưng"
   },
   {
    "id": "58743e8db807da0011e33c90",
