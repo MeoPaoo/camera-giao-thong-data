@@ -1,6 +1,6 @@
 {
  "version": 1,
- "updatedAt": "2026-11-07T23:45:15Z",
+ "updatedAt": "2026-11-26T02:54:11Z",
  "source": "giaothong.hochiminhcity.gov.vn (bản đồ công khai) + WME WazeVN traffic cams list (MIT); quận/phường: ranh giới © OpenStreetMap contributors (ODbL)",
  "count": 795,
  "cameras": [
@@ -1556,7 +1556,8 @@
    "longitude": 106.659903,
    "imageUrl": "https://giaothong.hochiminhcity.gov.vn/render/ImageHandler.ashx?id=591c6467a6bfb50011940096",
    "district": "Quận 11",
-   "ward": "Phường Minh Phụng"
+   "ward": "Phường Minh Phụng",
+   "missCount": 1
   },
   {
    "id": "591c64caa6bfb50011940098",
@@ -1565,7 +1566,8 @@
    "longitude": 106.71005487442,
    "imageUrl": "https://giaothong.hochiminhcity.gov.vn/render/ImageHandler.ashx?id=591c64caa6bfb50011940098",
    "district": "Quận Bình Thạnh",
-   "ward": "Phường Bình Thạnh"
+   "ward": "Phường Bình Thạnh",
+   "missCount": 1
   },
   {
    "id": "591c6552a6bfb5001194009a",
